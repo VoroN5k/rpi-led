@@ -85,43 +85,81 @@ def run_game_step():
            if random.choice([True, False]):
                led.on()
 
+# Protocol handler
+def handle_connection(conn, addr):
+    """
+    Packet format (33 bytes total):
+        [1 byte]  command
+        [32 bytes] HMAC-SHA256(SECRET, command)
+    """
+    global current_game, animation_step
+ 
+    with conn:
+        # Read exactly 33 bytes (1 cmd + 32 HMAC)
+        data = b""
+        while len(data) < 1 + DIGEST_SIZE:
+            chunk = conn.recv(1 + DIGEST_SIZE - len(data))
+            if not chunk:
+                log.warning("Connection closed before full packet received from %s", addr)
+                return
+            data += chunk
+ 
+        cmd_byte       = data[0]
+        received_digest = data[1:]
+ 
+        # 1. Allowlist check
+        if cmd_byte not in VALID_COMMANDS:
+            log.warning("Rejected unknown command 0x%02X from %s", cmd_byte, addr)
+            conn.sendall(b"\x00")   # NAK
+            return
+ 
+        # 2. HMAC verification
+        if not verify_hmac(cmd_byte, received_digest):
+            log.warning("HMAC verification failed for command 0x%02X from %s", cmd_byte, addr)
+            conn.sendall(b"\x00")   # NAK
+            return
+ 
+        # 3. Execute
+        log.info("Accepted command 0x%02X from %s", cmd_byte, addr)
+        conn.sendall(b"\x01")       # ACK
+ 
+        if cmd_byte > 32:
+            current_game   = cmd_byte
+            animation_step = 0
+        else:
+            current_game = 0
+            turn_off_all_leds()
+            for i in range(len(leds)):
+                if cmd_byte & (1 << i):
+                    leds[i].on()
 
 def start_server():
-   global current_game, animation_step
-   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-       s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-       s.bind((BIND_IP, PORT))
-       s.listen()
-       s.settimeout(0.05)
-       print("Server listening...")
-      
-       try:
-           while True:
-               try:
-                   conn, addr = s.accept()
-                   with conn:
-                       data = conn.recv(1)
-                       if data:
-                           val = data[0]
-                           if val > 32:
-                               current_game = val
-                               animation_step = 0
-                           else:
-                               current_game = 0
-                               turn_off_all_leds()
-                               for i in range(len(leds)):
-                                   if val & (1 << i):
-                                       leds[i].on()
-               except socket.timeout:
-                   run_game_step()
-                   time.sleep(0.1)
-       except KeyboardInterrupt:
-           print("\nShutting down server...")
-           turn_off_all_leds()
-
-
+    if SECRET == b"change-me-before-use":
+        log.warning(
+            "Using default secret! Set the LEDCTL_SECRET environment variable "
+            "before exposing this server on the network."
+        )
+ 
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind((BIND_IP, PORT))
+        s.listen()
+        s.settimeout(0.05)
+        log.info("Server listening on %s:%d", BIND_IP, PORT)
+ 
+        try:
+            while True:
+                try:
+                    conn, addr = s.accept()
+                    log.info("Connection from %s", addr)
+                    handle_connection(conn, addr)
+                except socket.timeout:
+                    run_game_step()
+                    time.sleep(0.1)
+        except KeyboardInterrupt:
+            log.info("Shutting down server...")
+            turn_off_all_leds()
+ 
+ 
 if __name__ == "__main__":
-   start_server()
-
-
-
+    start_server()
