@@ -44,7 +44,12 @@ def turn_off_all_leds():
    for led in leds:
        led.off()
 
-
+#HMAC Helpers
+def verify_hmac(cmd_byte: int, received_digest: bytes) -> bool:
+    """Return True if received_digest is a valid HMAC-SHA256 for cmd_byte."""
+    expected = hmac.new(SECRET, bytes([cmd_byte]), hashlib.sha256).digest()
+    # Constant-time comparison - prevents timing attacks
+    return hmac.compare_digest(expected, received_digest)
 
 
 def run_game_step():
