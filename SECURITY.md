@@ -15,18 +15,24 @@ This project is a single-version hobby/embedded project. Security fixes are appl
 
 This project is designed for use on **trusted local networks only**. Before deploying, be aware of the following:
 
-### ⚠️ No Authentication
+### ✅ Authentication — HMAC-SHA256 (implemented)
 
-The TCP server accepts commands from **any host** that can reach port `65432`. There is no handshake, token, or credential check. Anyone on the same network can send commands to your Raspberry Pi.
+Every command is signed with **HMAC-SHA256** using a shared secret. The server verifies the signature before acting on any command. Unsigned or incorrectly signed packets are rejected with a NAK and logged.
 
-**Mitigation:** Restrict access using a firewall rule, for example with `ufw`:
+The shared secret is loaded from the `LEDCTL_SECRET` environment variable on both sides:
+
+```bash
+export LEDCTL_SECRET="your-strong-random-secret"
+```
+
+Never hardcode the secret in source code. Use `python -c "import secrets; print(secrets.token_hex(32))"` to generate a strong one.
+
+A firewall rule adds an extra layer:
 
 ```bash
 sudo ufw allow from 192.168.5.0/24 to any port 65432
 sudo ufw deny 65432
 ```
-
-Replace `192.168.5.0/24` with your actual subnet.
 
 ---
 
@@ -44,11 +50,9 @@ Then point the client to `127.0.0.1` instead of the Pi's IP.
 
 ---
 
-### ⚠️ No Input Sanitisation Beyond Range Check
+### ✅ Strict Allowlist Validation (implemented)
 
-The server accepts any byte value `0–255`. Values outside the defined protocol range (`0–37`) are silently ignored, but there is no strict allowlist enforcement.
-
-**Mitigation:** If extending the protocol, validate all incoming values explicitly before acting on them.
+The server maintains an explicit allowlist (`VALID_COMMANDS = set(range(0, 38))`). Any byte value outside `0–37` is rejected before HMAC verification, logged as a warning, and responded to with a NAK. Silent ignoring is gone.
 
 ---
 
