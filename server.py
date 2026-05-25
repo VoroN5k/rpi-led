@@ -19,7 +19,23 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# Configuration - edit these to match your setup
+BIND_IP = "192.168.5.69"
+PORT = 65432
+
+# Shared secret - must match the client exactly
+# Best practice - load from environment variable so it never appears in source
+# export LEDCTL_SECRET="your-secret-key"
+SECRET = os.environ.get("LEDCTL_SECRET", "change-me-before-use").encode()
+
+# Exact set of valid command bytes - anything else is rejected
+VALID_COMMANDS = set(range(0, 38))  # 0-32 bitmask, 33-37 game modes
+
+# HMAC digest size in bytes
+DIGEST_SIZE = 32  # SHA256 produces 32-byte digests
+
 leds = [LED(27), LED(26), LED(17), LED(16), LED(19)]
+
 current_game = 0
 animation_step = 0
 
@@ -27,6 +43,8 @@ animation_step = 0
 def turn_off_all_leds():
    for led in leds:
        led.off()
+
+
 
 
 def run_game_step():
@@ -67,7 +85,7 @@ def start_server():
    global current_game, animation_step
    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-       s.bind(('0.0.0.0', 65432))
+       s.bind((BIND_IP, PORT))
        s.listen()
        s.settimeout(0.05)
        print("Server listening...")
