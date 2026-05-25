@@ -1,5 +1,10 @@
 # RPi LED Controller
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)
+![Open Source](https://img.shields.io/badge/Open%20Source-100%25-brightgreen?logo=opensourceinitiative&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-C51A4A?logo=raspberrypi&logoColor=white)
+
 A TCP-based LED control system for Raspberry Pi, featuring both direct pin control and animated lighting modes.
 
 ---
