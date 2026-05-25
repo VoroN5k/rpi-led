@@ -1,8 +1,23 @@
 import socket
 import time
 import random
+import hmac
+import hashlib
+import os
+import logging
 from gpiozero import LED
+ 
 
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("ledctl.log"),
+    ],
+)
+log = logging.getLogger(__name__)
 
 leds = [LED(27), LED(26), LED(17), LED(16), LED(19)]
 current_game = 0
